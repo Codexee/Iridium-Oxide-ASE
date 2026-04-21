@@ -172,11 +172,4 @@ jobs:
                 outputs/hamiltonians/${{ inputs.site }}/fermionic_active_space.json
                 outputs/hamiltonians/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}.json
                 outputs/hamiltonians/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}_exact_diag.json
-
-      - name: Exact diagonalization (JW benchmark)
-        shell: bash
-        run: |
-              set -euo pipefail
-              micromamba run -n ham python scripts/exact_diagonalize_qubit_hamiltonian.py \
-              "outputs/hamiltonians/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}.json"
               
