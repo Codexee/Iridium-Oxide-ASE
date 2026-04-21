@@ -171,3 +171,14 @@ jobs:
             outputs/hamiltonians/${{ inputs.site }}/fermionic_active_space.npz
             outputs/hamiltonians/${{ inputs.site }}/fermionic_active_space.json
             outputs/hamiltonians/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}.json
+
+      - name: Export qubit Hamiltonian (BK)
+        run: |
+              python export_qubit_hamiltonian_json.py \
+              outputs/hamiltonians/${{ env.SITE }}/fermionic_active_space.npz \
+              --mapping bk
+
+      - name: Exact diagonalization (BK benchmark)
+        run: |
+              python exact_diagonalize_qubit_hamiltonian.py \
+              outputs/hamiltonians/${{ env.SITE }}/qubit_hamiltonian_bk.json
