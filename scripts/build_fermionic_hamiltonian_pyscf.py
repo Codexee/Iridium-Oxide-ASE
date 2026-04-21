@@ -136,26 +136,49 @@ def choose_active_by_region(
     return chosen
 
 
-def active_space_integrals(mol: gto.Mole, mo_coeff: np.ndarray, active_mos: List[int]) -> Tuple[np.ndarray, np.ndarray, float]:
+def active_space_integrals(
+    mol: gto.Mole, 
+    mf, 
+    mo_coeff: np.ndarray, 
+    active_mos: List[int]
+) -> Tuple[np.ndarray, np.ndarray, float]:
     """
-    Build (h1, h2, ecore) in the *active MO basis*.
-    - h1: (nact, nact)
-    - h2: (nact, nact, nact, nact) in physicist notation (pqrs)
-    - ecore: nuclear repulsion + frozen-core energy term (here: just nuclear repulsion; if you freeze orbitals, extend accordingly)
+    Build (h1, h2, ecore) in the active MO basis using PySCF's CASCI
+    to correctly account for frozen-core contributions.
+
+    - h1: (nact, nact) effective one-electron integrals
+    - h2: (nact, nact, nact, nact) two-electron integrals
+    - ecore: nuclear repulsion + frozen-core electron energy
     """
-    C = mo_coeff[:, active_mos]  # (nao, nact)
+    from pyscf import mcscf
 
-    # One-electron AO integrals
-    hcore_ao = mol.intor("int1e_kin") + mol.intor("int1e_nuc")
-    h1 = C.T @ hcore_ao @ C
+    nact = len(active_mos)
 
-    # Two-electron AO integrals -> MO (active only)
-    eri_act = ao2mo.kernel(mol, C, aosym="s1", compact=False)  # (nact^4,)
-    nact = C.shape[1]
-    h2 = eri_act.reshape(nact, nact, nact, nact)
+    # Count electrons in active space
+    mo_occ = mf.mo_occ
+    n_active_electrons = int(sum(round(mo_occ[i]) for i in active_mos))
 
-    ecore = mol.energy_nuc()
-    return h1, h2, float(ecore)
+    # Build CASCI object -- this handles frozen core correctly
+    mc = mcscf.CASCI(mf, nact, n_active_electrons)
+
+    # Reorder MO coefficients so active orbitals are contiguous
+    # CASCI expects: [frozen_occ | active | frozen_virt]
+    nmo = mo_coeff.shape[1]
+    frozen_occ = [i for i in range(nmo) if mo_occ[i] > 1e-3 and i not in active_mos]
+    frozen_virt = [i for i in range(nmo) if mo_occ[i] <= 1e-3 and i not in active_mos]
+    
+    reordered = frozen_occ + active_mos + frozen_virt
+    mo_reordered = mo_coeff[:, reordered]
+    mc.mo_coeff = mo_reordered
+
+    # Get effective integrals with correct frozen-core energy
+    h1_eff, ecore = mc.get_h1eff()
+    h2_eff = mc.get_h2eff()
+
+    # h2 from get_h2eff is in compressed form -- reshape
+    h2_full = ao2mo.restore(1, h2_eff, nact)
+
+    return h1_eff, h2_full, float(ecore), int(n_active_electrons)
 
 
 def main():
@@ -250,7 +273,7 @@ def main():
         print(f"Selected active MOs by region fraction: {active_mos}")
 
     # Build active-space integrals
-    h1, h2, ecore = active_space_integrals(mol, mo_coeff, active_mos)
+    h1, h2, ecore, n_active_electrons = active_space_integrals(mol, mf, mo_coeff, active_mos)
 
     outdir = Path(args.outdir) / args.site
     outdir.mkdir(parents=True, exist_ok=True)
@@ -269,6 +292,7 @@ def main():
         h_index=h_idx,
         region_atoms=np.array(region_atoms, dtype=int),
         cluster=str(cluster_path),
+        n_active_electrons=n_active_electrons,
     )
     print(f"Wrote: {npz_path}")
 
@@ -285,6 +309,7 @@ def main():
         "n_orb": int(h1.shape[0]),
         "h1": h1.tolist(),
         "h2": h2.tolist(),
+        "n_active_electrons": n_active_electrons,
     }
     json_path = outdir / "fermionic_active_space.json"
     json_path.write_text(json.dumps(json_sanitize(payload), indent=2))
