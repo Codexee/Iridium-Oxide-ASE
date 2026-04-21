@@ -12,9 +12,9 @@ on:
         required: false
         default: ""
       n_electrons:
-        description: "Optional: fixed electron number for the physical sector"
-        required: false
-        default: ""
+        description: "Fixed electron number for the physical sector"
+        required: true
+        default: "8"
 
 permissions:
   contents: read
@@ -111,16 +111,10 @@ jobs:
           set -euo pipefail
           mkdir -p outputs/exact_diag/${{ inputs.site }}
 
-          if [ -n "${{ inputs.n_electrons }}" ]; then
-            micromamba run -n diag python scripts/exact_diagonalize_qubit_hamiltonian.py \
-              "${{ steps.locate.outputs.qubit_json }}" \
-              --n-electrons "${{ inputs.n_electrons }}" \
-              --out "outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json"
-          else
-            micromamba run -n diag python scripts/exact_diagonalize_qubit_hamiltonian.py \
-              "${{ steps.locate.outputs.qubit_json }}" \
-              --out "outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json"
-          fi
+          micromamba run -n diag python scripts/exact_diagonalize_qubit_hamiltonian.py \
+            "${{ steps.locate.outputs.qubit_json }}" \
+            --n-electrons "${{ inputs.n_electrons }}" \
+            --out "outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json"
 
       - name: Upload exact diagonalization artifact
         uses: actions/upload-artifact@v4
