@@ -1,0 +1,129 @@
+name: Exact diagonalization from exported Hamiltonian (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Site label (e.g. o69)"
+        required: true
+        default: "o69"
+      hamiltonian_run_id:
+        description: "Optional: hamiltonian-export run ID (blank = latest successful on this branch)"
+        required: false
+        default: ""
+      n_electrons:
+        description: "Optional: fixed electron number for the physical sector"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exact-diag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: "latest"
+          environment-name: diag
+          create-args: >-
+            -c conda-forge
+            python=3.11
+            numpy
+            scipy
+            pip
+
+      - name: Resolve Hamiltonian export run id
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.hamiltonian_run_id }}" ]; then
+            echo "run_id=${{ inputs.hamiltonian_run_id }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          WF=".github/workflows/hamiltonian-export.yml"
+          BR="${GITHUB_REF_NAME}"
+
+          RID="$(gh run list \
+            --workflow "$WF" \
+            --branch "$BR" \
+            --status success \
+            --limit 20 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+
+          if [ -z "${RID}" ] || [ "${RID}" = "null" ]; then
+            echo "No successful runs found for '${WF}' on branch '${BR}'"
+            exit 1
+          fi
+
+          echo "Using latest successful hamiltonian-export run id: ${RID}"
+          echo "run_id=${RID}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Hamiltonian artifacts from that run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          RID="${{ steps.resolve.outputs.run_id }}"
+
+          echo "Downloading all artifacts from run id: ${RID}"
+          gh run download "${RID}" -D artifacts
+
+          echo "Downloaded files:"
+          find artifacts -maxdepth 6 -type f -print
+
+      - name: Locate qubit Hamiltonian JSON
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE="${{ inputs.site }}"
+
+          QH="$(find artifacts -type f -name "qubit_hamiltonian_jw.json" | head -n 1 || true)"
+
+          if [ -z "$QH" ]; then
+            echo "ERROR: Could not find qubit_hamiltonian_jw.json in downloaded artifacts"
+            find artifacts -type f -name "*.json" -print || true
+            exit 1
+          fi
+
+          echo "qubit_json=$QH" >> "$GITHUB_OUTPUT"
+          echo "Using qubit Hamiltonian: $QH"
+
+      - name: Run exact diagonalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p outputs/exact_diag/${{ inputs.site }}
+
+          if [ -n "${{ inputs.n_electrons }}" ]; then
+            micromamba run -n diag python scripts/exact_diagonalize_qubit_hamiltonian.py \
+              "${{ steps.locate.outputs.qubit_json }}" \
+              --n-electrons "${{ inputs.n_electrons }}" \
+              --out "outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json"
+          else
+            micromamba run -n diag python scripts/exact_diagonalize_qubit_hamiltonian.py \
+              "${{ steps.locate.outputs.qubit_json }}" \
+              --out "outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json"
+          fi
+
+      - name: Upload exact diagonalization artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-diag-${{ inputs.site }}-jw
+          path: outputs/exact_diag/${{ inputs.site }}/qubit_hamiltonian_jw_exact_diag.json
