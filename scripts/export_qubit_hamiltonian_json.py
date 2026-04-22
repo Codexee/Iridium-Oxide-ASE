@@ -48,41 +48,38 @@ def infer_n_qubits_from_qubitop(qubit_op) -> int:
 
 def spatial_to_spin_orbital(h1_spatial: np.ndarray, h2_spatial: np.ndarray):
     """
-    Expand spatial integrals (n spatial) -> spin-orbital integrals (2n spin).
-    Returns (h1_so, h2_so) where:
-      h1_so: (2n, 2n)
-      h2_so: (2n, 2n, 2n, 2n) in OpenFermion InteractionOperator convention.
+    Expand spatial integrals to spin-orbital integrals.
+    h2_spatial is in chemist notation (pq|rs).
+    OpenFermion InteractionOperator expects physicist notation <pq|rs>.
+    Conversion: <pq|rs> = (pr|qs) = h2_spatial[p,r,q,s]
     """
-    # Convert h2 from chemist (pq|rs) to physicist <pq|rs> = chemist (pr|qs)
-    h2_spatial = h2_spatial.transpose(0, 2, 1, 3)
     n = h1_spatial.shape[0]
     nso = 2 * n
     h1 = np.zeros((nso, nso), dtype=float)
     h2 = np.zeros((nso, nso, nso, nso), dtype=float)
 
-    # helper: spin-orbital index
-    def so(p, spin):  # spin 0=alpha, 1=beta
+    def so(p, spin):
         return 2 * p + spin
 
-    # One-electron block-diagonal in spin
+    # One-electron: block-diagonal in spin
     for p in range(n):
         for q in range(n):
             v = h1_spatial[p, q]
             h1[so(p,0), so(q,0)] = v
             h1[so(p,1), so(q,1)] = v
 
-    # Two-electron: (pσ,qτ,rσ,sτ) = (pq|rs)
-    # We populate terms where first/third have same spin, second/fourth have same spin.
+    # Two-electron: chemist (pq|rs) -> physicist <pq|rs> = (pr|qs)
+    # h2_so[so(p,sp), so(q,sq), so(r,sp), so(s,sq)] = h2_spatial[p,r,q,s]
     for p in range(n):
         for q in range(n):
             for r in range(n):
                 for s in range(n):
-                    v = h2_spatial[p, q, r, s]
-                    for sp in (0,1):
-                        for sq in (0,1):
+                    v = h2_spatial[p, r, q, s]  # physicist <pq|rs> = chemist (pr|qs)
+                    for sp in (0, 1):
+                        for sq in (0, 1):
                             h2[so(p,sp), so(q,sq), so(r,sp), so(s,sq)] = v
     return h1, h2
-
+  
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("npz", help="Path to fermionic_active_space.npz")
@@ -107,7 +104,7 @@ def main():
     except Exception as e:
         raise RuntimeError("OpenFermion not installed. Try: pip install openfermion") from e
 
-    interaction = InteractionOperator(ecore, h1_so, 2.0 * h2_so)
+    interaction = InteractionOperator(ecore, h1_so, h2_so)
     qubit_op = jordan_wigner(interaction) if args.mapping == "jw" else bravyi_kitaev(interaction)
 
     # Serialize Pauli terms
