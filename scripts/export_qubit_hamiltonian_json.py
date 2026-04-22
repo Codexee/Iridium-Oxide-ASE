@@ -107,7 +107,7 @@ def main():
     except Exception as e:
         raise RuntimeError("OpenFermion not installed. Try: pip install openfermion") from e
 
-    interaction = InteractionOperator(ecore, h1_so, h2_so)
+    interaction = InteractionOperator(ecore, h1_so, 2.0 * h2_so)
     qubit_op = jordan_wigner(interaction) if args.mapping == "jw" else bravyi_kitaev(interaction)
 
     # Serialize Pauli terms
