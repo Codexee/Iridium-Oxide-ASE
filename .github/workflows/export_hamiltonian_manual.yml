@@ -1,0 +1,132 @@
+name: Export Qubit Hamiltonian (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Site label (e.g. o69)"
+        required: true
+        default: "o69"
+      hamiltonian_run_id:
+        description: "Optional: build-hamiltonian run ID (blank = latest successful on this branch)"
+        required: false
+        default: ""
+      mapping:
+        description: "Qubit mapping (jw or bk)"
+        required: true
+        default: "jw"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  export-hamiltonian:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: "latest"
+          environment-name: export
+          create-args: >-
+            -c conda-forge
+            python=3.11
+            numpy
+            pip
+
+      - name: Install openfermion
+        shell: bash
+        run: micromamba run -n export pip install openfermion
+
+      - name: Resolve build-hamiltonian run id
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.hamiltonian_run_id }}" ]; then
+            echo "run_id=${{ inputs.hamiltonian_run_id }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          WF=".github/workflows/hamiltonian-export.yml"
+          BR="${GITHUB_REF_NAME}"
+
+          RID="$(gh run list \
+            --workflow "$WF" \
+            --branch "$BR" \
+            --status success \
+            --limit 20 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+
+          if [ -z "${RID}" ] || [ "${RID}" = "null" ]; then
+            echo "No successful runs found for '${WF}' on branch '${BR}'"
+            exit 1
+          fi
+
+          echo "Using latest successful build run id: ${RID}"
+          echo "run_id=${RID}" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts from that run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          RID="${{ steps.resolve.outputs.run_id }}"
+
+          echo "Downloading all artifacts from run id: ${RID}"
+          gh run download "${RID}" -D artifacts
+
+          echo "Downloaded files:"
+          find artifacts -maxdepth 6 -type f -print
+
+      - name: Locate NPZ and fermionic JSON
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NPZ="$(find artifacts -type f -name "fermionic_active_space.npz" | head -n 1 || true)"
+          if [ -z "$NPZ" ]; then
+            echo "ERROR: Could not find fermionic_active_space.npz"
+            find artifacts -type f -print || true
+            exit 1
+          fi
+
+          FERM_JSON="$(find artifacts -type f -name "fermionic_active_space.json" | head -n 1 || true)"
+          if [ -z "$FERM_JSON" ]; then
+            echo "ERROR: Could not find fermionic_active_space.json"
+            exit 1
+          fi
+
+          echo "npz=$NPZ" >> "$GITHUB_OUTPUT"
+          echo "ferm_json=$FERM_JSON" >> "$GITHUB_OUTPUT"
+          echo "Using NPZ: $NPZ"
+          echo "Using fermionic JSON: $FERM_JSON"
+
+      - name: Export qubit Hamiltonian
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p outputs/hamiltonian/${{ inputs.site }}
+
+          micromamba run -n export python scripts/export_qubit_hamiltonian_json.py \
+            "${{ steps.locate.outputs.npz }}" \
+            --mapping "${{ inputs.mapping }}" \
+            --out "outputs/hamiltonian/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}.json"
+
+      - name: Upload qubit Hamiltonian artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamiltonian-${{ inputs.site }}-${{ inputs.mapping }}
+          path: outputs/hamiltonian/${{ inputs.site }}/qubit_hamiltonian_${{ inputs.mapping }}.json
