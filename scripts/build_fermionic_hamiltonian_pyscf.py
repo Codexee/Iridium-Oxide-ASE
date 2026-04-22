@@ -137,49 +137,54 @@ def choose_active_by_region(
 
 
 def active_space_integrals(
-    mol: gto.Mole, 
-    mf, 
-    mo_coeff: np.ndarray, 
+    mol: gto.Mole,
+    mf,
+    mo_coeff: np.ndarray,
     active_mos: List[int]
-) -> Tuple[np.ndarray, np.ndarray, float]:
+) -> Tuple[np.ndarray, np.ndarray, float, int]:
     """
-    Build (h1, h2, ecore) in the active MO basis using PySCF's CASCI
-    to correctly account for frozen-core contributions.
-
-    - h1: (nact, nact) effective one-electron integrals
-    - h2: (nact, nact, nact, nact) two-electron integrals
-    - ecore: nuclear repulsion + frozen-core electron energy
+    Build (h1, h2, ecore) using ao2mo with correct frozen-core energy.
+    h1 and h2 are in chemist notation (pq|rs).
+    ecore includes nuclear repulsion + frozen-core electron energy.
     """
     from pyscf import mcscf
 
-    nact = len(active_mos)
-
-    # Count electrons in active space
+    nmo = mo_coeff.shape[1]
     mo_occ = mf.mo_occ
     n_active_electrons = int(sum(round(mo_occ[i]) for i in active_mos))
+    nact = len(active_mos)
 
-    # Build CASCI object -- this handles frozen core correctly
-    mc = mcscf.CASCI(mf, nact, n_active_electrons)
-
-    # Reorder MO coefficients so active orbitals are contiguous
-    # CASCI expects: [frozen_occ | active | frozen_virt]
-    nmo = mo_coeff.shape[1]
+    # Identify frozen occupied orbitals (occupied but not in active space)
     frozen_occ = [i for i in range(nmo) if mo_occ[i] > 1e-3 and i not in active_mos]
-    frozen_virt = [i for i in range(nmo) if mo_occ[i] <= 1e-3 and i not in active_mos]
-    
-    reordered = frozen_occ + active_mos + frozen_virt
-    mo_reordered = mo_coeff[:, reordered]
-    mc.mo_coeff = mo_reordered
 
-    # Get effective integrals with correct frozen-core energy
-    h1_eff, ecore = mc.get_h1eff()
-    h2_eff = mc.get_h2eff()
+    C_act = mo_coeff[:, active_mos]
+    C_fro = mo_coeff[:, frozen_occ]
 
-    # h2 from get_h2eff is in compressed form -- reshape
-    h2_full = ao2mo.restore(1, h2_eff, nact)
+    # Core Hamiltonian
+    hcore_ao = mol.intor('int1e_kin') + mol.intor('int1e_nuc')
 
-    return h1_eff, h2_full, float(ecore), int(n_active_electrons)
+    # Frozen-core density matrix
+    dm_fro = 2.0 * C_fro @ C_fro.T if len(frozen_occ) > 0 else np.zeros_like(hcore_ao)
 
+    # Frozen-core Fock matrix contribution
+    # veff_fro = J_fro - 0.5*K_fro
+    from pyscf import scf as pyscf_scf
+    veff_fro = mf.get_veff(mol, dm_fro) if len(frozen_occ) > 0 else np.zeros_like(hcore_ao)
+
+    # Effective one-electron integrals for active space
+    heff_ao = hcore_ao + veff_fro
+    h1 = C_act.T @ heff_ao @ C_act
+
+    # Two-electron integrals for active space (chemist notation)
+    h2 = ao2mo.kernel(mol, C_act, aosym='s1', compact=False).reshape(nact, nact, nact, nact)
+
+    # Core energy: nuclear repulsion + frozen electron energy
+    ecore = mol.energy_nuc()
+    if len(frozen_occ) > 0:
+        # E_core = E_nuc + sum_i (hcore[i,i] + 0.5*veff_fro[i,i]) * 2 (factor 2 for closed shell)
+        ecore += float(np.einsum('ij,ji->', hcore_ao + 0.5 * veff_fro, dm_fro))
+
+    return h1, h2, ecore, n_active_electrons
 
 def main():
     ap = argparse.ArgumentParser()
