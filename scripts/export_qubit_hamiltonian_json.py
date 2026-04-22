@@ -53,6 +53,8 @@ def spatial_to_spin_orbital(h1_spatial: np.ndarray, h2_spatial: np.ndarray):
       h1_so: (2n, 2n)
       h2_so: (2n, 2n, 2n, 2n) in OpenFermion InteractionOperator convention.
     """
+    # Convert h2 from chemist (pq|rs) to physicist <pq|rs> = chemist (pr|qs)
+    h2_spatial = h2_spatial.transpose(0, 2, 1, 3)
     n = h1_spatial.shape[0]
     nso = 2 * n
     h1 = np.zeros((nso, nso), dtype=float)
