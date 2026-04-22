@@ -53,7 +53,7 @@ jobs:
             exit 0
           fi
 
-          WF=".github/workflows/export_hamiltonian_manual.yml"
+          WF=".github/workflows/hamiltonian-export.yml"
           BR="${GITHUB_REF_NAME}"
 
           RID="$(gh run list \
