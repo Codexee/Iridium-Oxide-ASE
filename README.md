@@ -1,3 +1,5 @@
+[![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19491027.svg)](https://zenodo.org/doi/10.5281/zenodo.19491027)
+
 # Iridium Oxide ASE
 
 This repository contains an open-source, reproducible workflow for constructing, analysing,
@@ -11,6 +13,9 @@ hybrid classical–quantum simulation workflows.
 While the current focus is IrO₂ and hydrogen adsorption intermediates, the workflow is
 deliberately modular and extensible to other materials systems and physics-driven
 comparative studies.
+
+**Preprint:** [A Reproducible Workflow for Extracting Quantum Hamiltonians from 
+Surface-Adsorbate Models](https://zenodo.org/doi/10.5281/zenodo.19491027) — under review at *Nature* (2026)
 
 ## Scientific scope
 
@@ -97,3 +102,13 @@ allows individual stages to be rerun or substituted without modifying core scrip
 Users extending the workflow to new surface states, adsorbates, or materials systems are
 encouraged to copy and adapt the example run_all.sh rather than invoking scripts
 individually.
+
+## Citation
+
+If you use this workflow, please cite:
+
+Malhotra, M., Ramarapu, N., & Rinaldi, F. (2026). A Reproducible Workflow for 
+Extracting Quantum Hamiltonians from Surface-Adsorbate Models. Zenodo. 
+https://doi.org/10.5281/zenodo.19491027
+
+Under review at *Nature*.
