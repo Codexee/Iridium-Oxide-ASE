@@ -10,3 +10,4 @@ dependencies:
   - xtb
   - matplotlib
   - xtb-python
+  - pyyaml
