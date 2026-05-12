@@ -393,6 +393,12 @@ def main():
                     help="Max number of orbitals to suggest for active set")
     ap.add_argument("--outdir", type=str, default="outputs/orbital_analysis",
                     help="Output directory")
+    ap.add_argument(
+    "--pseudo-metadata",
+    type=str,
+    default=None,
+    help="Optional QE pseudopotential provenance metadata JSON",
+    )
     args = ap.parse_args()
 
     cluster_path = Path(args.cluster)
@@ -489,7 +495,18 @@ def main():
         w.writeheader()
         for r in rows_sorted:
             w.writerow(r)
+    pseudo_metadata = None
 
+    if args.pseudo_metadata:
+        pseudo_path = Path(args.pseudo_metadata)
+    
+        if not pseudo_path.exists():
+            raise FileNotFoundError(
+                f"Pseudopotential metadata file not found: {pseudo_path}"
+            )
+    
+        pseudo_metadata = json.loads(pseudo_path.read_text())
+    
     # Write JSON for active orbitals
     active = {
         "site": args.site,
@@ -499,6 +516,7 @@ def main():
             "charge": args.charge,
             "uhf": args.uhf,
         },
+        "pseudopotential_provenance": pseudo_metadata,
         "hstar_index_0based": h_idx,
         "hstar_symbol": symbols[h_idx],
         "shell_cutoff_ang": args.shell_cutoff,
@@ -521,9 +539,27 @@ def main():
     lines.append(f"- Neighbor shell cutoff: {args.shell_cutoff:.2f} Å")
     lines.append(f"- Shell size (atoms): {len(shell_idxs)}")
     lines.append(f"- HOMO energy (approx): {homo_energy_ev:.3f} eV\n")
-    lines.append("## Suggested active orbitals (ranked by region contribution)\n")
-    lines.append("| MO | Energy (eV) | Occ | contrib(H) | contrib(shell) | contrib(region) |")
-    lines.append("|---:|------------:|----:|----------:|---------------:|---------------:|")
+    if pseudo_metadata:
+        lines.append("## Parent QE pseudopotential provenance\n")
+        lines.append(
+            "This xTB orbital analysis is linked to a QE pseudopotential-aware "
+            "parent electronic-structure configuration for provenance tracking.\n"
+        )
+        lines.append(
+            f"- QE input: `{pseudo_metadata['qe_input_file']}`"
+        )
+        lines.append(
+            f"- XC functional: `{pseudo_metadata['input_dft']}`"
+        )
+        lines.append(
+            f"- ecutwfc: `{pseudo_metadata['ecutwfc']}` Ry"
+        )
+        lines.append(
+            f"- ecutrho: `{pseudo_metadata['ecutrho']}` Ry\n"
+        )
+        lines.append("## Suggested active orbitals (ranked by region contribution)\n")
+        lines.append("| MO | Energy (eV) | Occ | contrib(H) | contrib(shell) | contrib(region) |")
+        lines.append("|---:|------------:|----:|----------:|---------------:|---------------:|")
     for r in suggested:
         lines.append(
             f"| {r['mo']} | {r['energy_ev']:.3f} | {r['occ']:.3f} | "
