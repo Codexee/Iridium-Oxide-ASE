@@ -1,6 +1,18 @@
 name: IrO2 pseudopotential QE input generation
 
 on:
+  push:
+    branches:
+      - dev/pseudopotential-integration
+    paths:
+      - "legacy_scripts/generate_states.py"
+      - "scripts/write_qe_pseudopotential_input.py"
+      - "inputs/state_set.json"
+      - "inputs/*.in"
+      - "inputs/pseudopotentials/**"
+      - ".github/workflows/pseudopotential-qe-inputs.yml"
+      - "environment.yml"
+
   workflow_dispatch:
     inputs:
       site:
@@ -50,8 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           conda env create -f environment.yml || true
-          conda run -n iro2 python -c "import numpy, ase; print('env ok')"
-
+          conda run -n iro2 python -c "import numpy, ase, yaml; print('env ok')"
       - name: Restore generated states cache
         id: states-cache
         uses: actions/cache@v4
@@ -68,9 +79,9 @@ jobs:
           set -euo pipefail
           rm -rf outputs/states || true
           mkdir -p outputs
-          conda run -n iro2 python -u scripts/generate_states.py \
-            --state_set inputs/state_set.json \
-            --outputs outputs
+          conda run -n iro2 python -u legacy_scripts/generate_states.py \
+                  --state_set inputs/state_set.json \
+                  --outputs outputs
           find outputs/states -name "*.traj"
 
       - name: Show available states
