@@ -1,17 +1,37 @@
-system: IrO2
-dft_backend: quantum_espresso
+system: IrO2_H
+backend: quantum_espresso
 exchange_correlation: PBE
+pseudo_dir: inputs/pseudopotentials/upf
+
+calculation_defaults:
+  ecutwfc: 80
+  ecutrho: 640
+  occupations: smearing
+  smearing: mv
+  degauss: 0.02
+  nspin: 1
+
 elements:
   Ir:
-    pseudo_family: TBD
-    relativistic: scalar-relativistic_or_fully-relativistic_TBD
-    valence_configuration: TBD
-    source: TBD
+    file: Ir.us.z_31.ld1.psl.v1.0.0-high.upf
+    family: SSSP Precision
+    type: ultrasoft
+    functional: PBE
+    relativistic: scalar-relativistic
+    source: Materials Cloud SSSP v1.3.0
+
   O:
-    pseudo_family: TBD
-    relativistic: TBD
-    valence_configuration: TBD
-    source: TBD
-notes:
-  - Pseudopotentials are used in the parent electronic-structure calculation.
-  - Reduced Hamiltonians inherit this choice through projection/localized orbital selection.
+    file: O.pbe-n-kjpaw_psl.0.1.UPF
+    family: SSSP Precision
+    type: PAW
+    functional: PBE
+    relativistic: scalar-relativistic
+    source: Materials Cloud SSSP v1.3.0
+
+  H:
+    file: H_ONCV_PBE-1.0.oncvpsp.upf
+    family: SSSP Precision
+    type: ONCV
+    functional: PBE
+    relativistic: scalar-relativistic
+    source: Materials Cloud SSSP v1.3.0
