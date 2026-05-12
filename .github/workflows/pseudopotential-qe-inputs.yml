@@ -114,14 +114,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REQUESTED="${{ github.event.inputs.site }}"
-          CURRENT="${{ matrix.site }}"
-
-          if [ "${REQUESTED}" = "all" ] || [ "${REQUESTED}" = "${CURRENT}" ]; then
-            echo "run_site=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_site=false" >> "$GITHUB_OUTPUT"
-          fi
+                REQUESTED="${{ github.event.inputs.site }}"
+                CURRENT="${{ matrix.site }}"
+                  
+                if [ -z "${REQUESTED}" ]; then
+                  REQUESTED="all"
+                fi
 
       - name: Set up Miniconda
         if: steps.gate.outputs.run_site == 'true'
@@ -171,18 +169,23 @@ jobs:
         if: steps.gate.outputs.run_site == 'true'
         shell: bash -l {0}
         run: |
-          set -euo pipefail
-          mkdir -p "${OUTDIR}"
-
-          conda run -n iro2 python -u scripts/write_qe_pseudopotential_input.py \
-            "${TRAJ}" \
-            --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
-            --output "${OUTDIR}/${PREFIX}_pseudo.in" \
-            --metadata-output "${OUTDIR}/${PREFIX}_pseudo_metadata.json" \
-            --calculation "${{ github.event.inputs.calculation }}" \
-            --prefix "${PREFIX}"
-
-          ls -l "${OUTDIR}"
+              set -euo pipefail
+              mkdir -p "${OUTDIR}"
+          
+              CALCULATION="${{ github.event.inputs.calculation }}"
+              if [ -z "${CALCULATION}" ]; then
+                CALCULATION="scf"
+              fi
+          
+              conda run -n iro2 python -u scripts/write_qe_pseudopotential_input.py \
+                "${TRAJ}" \
+                --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
+                --output "${OUTDIR}/${PREFIX}_pseudo.in" \
+                --metadata-output "${OUTDIR}/${PREFIX}_pseudo_metadata.json" \
+                --calculation "${CALCULATION}" \
+                --prefix "${PREFIX}"
+          
+              ls -l "${OUTDIR}"
 
       - name: Upload QE pseudopotential input
         if: steps.gate.outputs.run_site == 'true'
