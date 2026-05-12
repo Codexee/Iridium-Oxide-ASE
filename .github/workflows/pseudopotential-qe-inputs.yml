@@ -63,33 +63,23 @@ jobs:
           set -euo pipefail
           conda env create -f environment.yml || true
           conda run -n iro2 python -c "import numpy, ase, yaml; print('env ok')"
-      - name: Restore generated states cache
-        id: states-cache
-        uses: actions/cache@v4
-        with:
-          path: outputs/states
-          key: iro2-generated-states-${{ hashFiles('scripts/generate_states.py', 'scripts/iro2_slab_setup.py', 'inputs/state_set.json', 'inputs/*.in') }}
-          restore-keys: |
-            iro2-generated-states-
-
-      - name: Generate states if cache is missing
-        if: steps.states-cache.outputs.cache-hit != 'true'
+      - name: Generate states
         shell: bash -l {0}
         run: |
           set -euo pipefail
-          rm -rf outputs/states || true
+          rm -rf outputs || true
           mkdir -p outputs
           conda run -n iro2 python -u legacy_scripts/generate_states.py \
-                  --state_set inputs/state_set.json \
-                  --outputs outputs
-          find outputs/states -name "*.traj"
-
+            --state_set inputs/state_set.json \
+            --outputs outputs
+          find outputs/states -name "*.traj" | sort
+      
       - name: Show available states
         shell: bash -l {0}
         run: |
-          set -euo pipefail
-          find outputs/states -name "*.traj" | sort
-
+            set -euo pipefail
+            find outputs/states -name "*.traj" | sort
+      
       - name: Upload generated states for downstream jobs
         uses: actions/upload-artifact@v4
         with:
@@ -109,17 +99,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Skip sites not requested
+      - name: Decide whether to run this site
         id: gate
         shell: bash
         run: |
           set -euo pipefail
-                REQUESTED="${{ github.event.inputs.site }}"
-                CURRENT="${{ matrix.site }}"
-                  
-                if [ -z "${REQUESTED}" ]; then
-                  REQUESTED="all"
-                fi
+      
+          REQUESTED="${{ github.event.inputs.site || 'all' }}"
+          CURRENT="${{ matrix.site }}"
+      
+          echo "requested=${REQUESTED}"
+          echo "current=${CURRENT}"
+      
+          if [ "${REQUESTED}" = "all" ] || [ "${REQUESTED}" = "${CURRENT}" ]; then
+            echo "run_site=true" >> "$GITHUB_OUTPUT"
+            echo "Running site ${CURRENT}"
+          else
+            echo "run_site=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping site ${CURRENT}"
+          fi
 
       - name: Set up Miniconda
         if: steps.gate.outputs.run_site == 'true'
@@ -169,23 +167,20 @@ jobs:
         if: steps.gate.outputs.run_site == 'true'
         shell: bash -l {0}
         run: |
-              set -euo pipefail
-              mkdir -p "${OUTDIR}"
-          
-              CALCULATION="${{ github.event.inputs.calculation }}"
-              if [ -z "${CALCULATION}" ]; then
-                CALCULATION="scf"
-              fi
-          
-              conda run -n iro2 python -u scripts/write_qe_pseudopotential_input.py \
-                "${TRAJ}" \
-                --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
-                --output "${OUTDIR}/${PREFIX}_pseudo.in" \
-                --metadata-output "${OUTDIR}/${PREFIX}_pseudo_metadata.json" \
-                --calculation "${CALCULATION}" \
-                --prefix "${PREFIX}"
-          
-              ls -l "${OUTDIR}"
+          set -euo pipefail
+          mkdir -p "${OUTDIR}"
+      
+          CALCULATION="${{ github.event.inputs.calculation || 'scf' }}"
+      
+          conda run -n iro2 python -u scripts/write_qe_pseudopotential_input.py \
+            "${TRAJ}" \
+            --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
+            --output "${OUTDIR}/${PREFIX}_pseudo.in" \
+            --metadata-output "${OUTDIR}/${PREFIX}_pseudo_metadata.json" \
+            --calculation "${CALCULATION}" \
+            --prefix "${PREFIX}"
+      
+          ls -l "${OUTDIR}"
 
       - name: Upload QE pseudopotential input
         if: steps.gate.outputs.run_site == 'true'
