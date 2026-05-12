@@ -1,0 +1,17 @@
+system: IrO2
+dft_backend: quantum_espresso
+exchange_correlation: PBE
+elements:
+  Ir:
+    pseudo_family: TBD
+    relativistic: scalar-relativistic_or_fully-relativistic_TBD
+    valence_configuration: TBD
+    source: TBD
+  O:
+    pseudo_family: TBD
+    relativistic: TBD
+    valence_configuration: TBD
+    source: TBD
+notes:
+  - Pseudopotentials are used in the parent electronic-structure calculation.
+  - Reduced Hamiltonians inherit this choice through projection/localized orbital selection.
