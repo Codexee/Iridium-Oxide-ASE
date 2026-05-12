@@ -5,7 +5,7 @@ on:
     branches:
       - dev/pseudopotential-integration
     paths:
-      - "legacy_scripts/generate_states.py"
+      - "scripts/generate_states.py"
       - "scripts/optimization_iro2_qe_pseudopotential.py"
       - "inputs/state_set.json"
       - "inputs/*.in"
@@ -14,32 +14,16 @@ on:
       - "environment.yml"
 
   workflow_dispatch:
-    inputs:
-      site:
-        description: "Site to process: all, clean, or one H site such as 69"
+   inputs:
+      requested_site:
+        description: "Site to process (e.g. 69 or clean or all)"
         required: true
-        default: "all"
-        type: choice
-        options:
-          - all
-          - clean
-          - "21"
-          - "22"
-          - "23"
-          - "44"
-          - "46"
-          - "47"
-          - "69"
-          - "71"
+        default: "69"
+
       calculation:
-        description: "QE calculation type to write"
+        description: "QE calculation type"
         required: true
         default: "scf"
-        type: choice
-        options:
-          - scf
-          - relax
-          - vc-relax
 
 permissions:
   contents: read
@@ -69,7 +53,7 @@ jobs:
           set -euo pipefail
           rm -rf outputs || true
           mkdir -p outputs
-          conda run -n iro2 python -u legacy_scripts/generate_states.py \
+          conda run -n iro2 python -u scripts/generate_states.py \
             --state_set inputs/state_set.json \
             --outputs outputs
           find outputs/states -name "*.traj" | sort
@@ -104,13 +88,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-      
-          REQUESTED="${{ github.event.inputs.site || 'all' }}"
+
+          REQUESTED="${{ github.event.inputs.requested_site }}"
           CURRENT="${{ matrix.site }}"
-      
+
+          if [ -z "${REQUESTED}" ]; then
+            REQUESTED="all"
+          fi
+
           echo "requested=${REQUESTED}"
           echo "current=${CURRENT}"
-      
+
           if [ "${REQUESTED}" = "all" ] || [ "${REQUESTED}" = "${CURRENT}" ]; then
             echo "run_site=true" >> "$GITHUB_OUTPUT"
             echo "Running site ${CURRENT}"
@@ -179,19 +167,22 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${OUTDIR}"
-      
-          CALCULATION="${{ github.event.inputs.calculation || 'scf' }}"
-      
-            conda run -n iro2 python -u scripts/optimization_iro2_qe_pseudopotential.py \
+
+          CALCULATION="${{ github.event.inputs.calculation }}"
+
+          if [ -z "${CALCULATION}" ]; then
+            CALCULATION="scf"
+          fi
+
+          conda run -n iro2 python -u scripts/optimization_iro2_qe_pseudopotential.py \
             "${TRAJ}" \
             --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
             --output "${OUTDIR}/${PREFIX}_pseudo.in" \
             --metadata-output "${OUTDIR}/${PREFIX}_pseudo_metadata.json" \
             --calculation "${CALCULATION}" \
             --prefix "${PREFIX}"
-      
-          ls -l "${OUTDIR}"
 
+          ls -l "${OUTDIR}"
       - name: Upload QE pseudopotential input
         if: steps.gate.outputs.run_site == 'true'
         uses: actions/upload-artifact@v4
