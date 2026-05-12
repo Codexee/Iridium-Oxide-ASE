@@ -6,7 +6,7 @@ on:
       - dev/pseudopotential-integration
     paths:
       - "legacy_scripts/generate_states.py"
-      - "scripts/write_qe_pseudopotential_input.py"
+      - "scripts/optimization_iro2_qe_pseudopotential.py"
       - "inputs/state_set.json"
       - "inputs/*.in"
       - "inputs/pseudopotentials/**"
@@ -163,6 +163,16 @@ jobs:
 
           ls -l "${TRAJ}"
 
+      - name: Debug repository files
+        if: steps.gate.outputs.run_site == 'true'
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          echo "Scripts:"
+          find scripts -maxdepth 1 -type f | sort
+          echo "Pseudopotential inputs:"
+          find inputs/pseudopotentials -maxdepth 3 -type f | sort
+
       - name: Write QE pseudopotential input
         if: steps.gate.outputs.run_site == 'true'
         shell: bash -l {0}
@@ -172,7 +182,7 @@ jobs:
       
           CALCULATION="${{ github.event.inputs.calculation || 'scf' }}"
       
-          conda run -n iro2 python -u scripts/write_qe_pseudopotential_input.py \
+            conda run -n iro2 python -u scripts/optimization_iro2_qe_pseudopotential.py \
             "${TRAJ}" \
             --manifest inputs/pseudopotentials/pseudopotential_manifest.yaml \
             --output "${OUTDIR}/${PREFIX}_pseudo.in" \
