@@ -23,6 +23,10 @@ on:
         description: "Max orbitals to suggest"
         required: true
         default: "12"
+      pseudo_run_id:
+        description: "Optional pseudopotential QE-input workflow run ID to download metadata from"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -105,6 +109,42 @@ jobs:
           echo "Downloaded files:"
           find artifacts -maxdepth 5 -type f -print
 
+      - name: Download pseudopotential metadata artifact
+        if: inputs.pseudo_run_id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p pseudo_artifacts
+
+          gh run download "${{ inputs.pseudo_run_id }}" \
+            --repo "${{ github.repository }}" \
+            --dir pseudo_artifacts
+
+          echo "Downloaded pseudopotential files:"
+          find pseudo_artifacts -type f | sort
+
+      - name: Locate pseudopotential metadata
+        if: inputs.pseudo_run_id != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SITE="${{ inputs.site }}"
+          SITE_NUM="${SITE#o}"
+
+          PSEUDO_METADATA="$(find pseudo_artifacts -type f -name "iro2_h_o${SITE_NUM}_pseudo_metadata.json" | head -n 1 || true)"
+
+          if [ -z "${PSEUDO_METADATA}" ]; then
+            echo "Could not find pseudopotential metadata for site ${SITE}"
+            find pseudo_artifacts -type f | sort
+            exit 1
+          fi
+
+          echo "PSEUDO_METADATA=${PSEUDO_METADATA}" >> "$GITHUB_ENV"
+          echo "Using pseudopotential metadata: ${PSEUDO_METADATA}"
+
       - name: Locate cluster geometry file
         id: locate
         shell: bash
@@ -113,19 +153,18 @@ jobs:
 
           SITE="${{ inputs.site }}"
 
-          # Prefer expected filenames
           PREFERRED_TRAJ="$(find artifacts -type f -name "${SITE}_cluster.traj" | head -n 1 || true)"
-          PREFERRED_XYZ="$(find artifacts -type f -name "${SITE}_cluster.xyz"  | head -n 1 || true)"
+          PREFERRED_XYZ="$(find artifacts -type f -name "${SITE}_cluster.xyz" | head -n 1 || true)"
 
-          if [ -n "$PREFERRED_TRAJ" ]; then
-            echo "cluster_path=$PREFERRED_TRAJ" >> "$GITHUB_OUTPUT"
-            echo "Using cluster traj: $PREFERRED_TRAJ"
+          if [ -n "${PREFERRED_TRAJ}" ]; then
+            echo "cluster_path=${PREFERRED_TRAJ}" >> "$GITHUB_OUTPUT"
+            echo "Using cluster traj: ${PREFERRED_TRAJ}"
             exit 0
           fi
 
-          if [ -n "$PREFERRED_XYZ" ]; then
-            echo "cluster_path=$PREFERRED_XYZ" >> "$GITHUB_OUTPUT"
-            echo "Using cluster xyz: $PREFERRED_XYZ"
+          if [ -n "${PREFERRED_XYZ}" ]; then
+            echo "cluster_path=${PREFERRED_XYZ}" >> "$GITHUB_OUTPUT"
+            echo "Using cluster xyz: ${PREFERRED_XYZ}"
             exit 0
           fi
 
@@ -142,6 +181,14 @@ jobs:
           echo "Cluster path: ${{ steps.locate.outputs.cluster_path }}"
           echo "Case: ${{ matrix.case.name }} (charge=${{ matrix.case.charge }}, uhf=${{ matrix.case.uhf }})"
 
+          EXTRA_ARGS=()
+          if [ -n "${PSEUDO_METADATA:-}" ]; then
+            echo "Using pseudopotential metadata: ${PSEUDO_METADATA}"
+            EXTRA_ARGS+=(--pseudo-metadata "${PSEUDO_METADATA}")
+          else
+            echo "No pseudopotential metadata provided."
+          fi
+
           micromamba run -n iro2 python scripts/orbital_analysis_xtb_cluster.py \
             "${{ steps.locate.outputs.cluster_path }}" \
             --site "${{ inputs.site }}" \
@@ -150,7 +197,8 @@ jobs:
             --shell-cutoff "${{ inputs.shell_cutoff }}" \
             --frontier-window-ev "${{ inputs.frontier_window_ev }}" \
             --topn "${{ inputs.topn }}" \
-            --outdir "outputs/orbital_analysis/${{ matrix.case.name }}"
+            --outdir "outputs/orbital_analysis/${{ matrix.case.name }}" \
+            "${EXTRA_ARGS[@]}"
 
           echo "Analysis outputs:"
           find "outputs/orbital_analysis/${{ matrix.case.name }}/${{ inputs.site }}" -maxdepth 3 -type f -print
