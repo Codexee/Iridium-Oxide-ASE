@@ -39,6 +39,10 @@ on:
         description: "Number of virtual active orbitals (region-based selection)"
         required: true
         default: "3"
+      active_mos:
+        description: "Explicit PySCF MO indices, 0-based. Empty = region-based selection"
+        required: false
+        default: "103,111,116,118,634,663,665"
       mapping:
         description: "Qubit mapping"
         required: true
@@ -153,8 +157,8 @@ jobs:
             --region-cutoff "${{ inputs.region_cutoff }}" \
             --n-occ "${{ inputs.n_occ }}" \
             --n-virt "${{ inputs.n_virt }}" \
+            --active-mos "${{ inputs.active_mos }}" \
             --outdir "outputs/hamiltonians"
-
       - name: Export qubit Hamiltonian JSON
         shell: bash
         run: |
