@@ -14,101 +14,320 @@ While the current focus is IrO₂ and hydrogen adsorption intermediates, the wor
 deliberately modular and extensible to other materials systems and physics-driven
 comparative studies.
 
-**Preprint:** [A Reproducible Workflow for Extracting Quantum Hamiltonians from 
-Surface-Adsorbate Models](https://zenodo.org/doi/10.5281/zenodo.19491027) — under review at *Nature* (2026)
+---
 
-## Scientific scope
+## Preprint
+
+**A Reproducible Workflow for Extracting Quantum Hamiltonians from Surface-Adsorbate Models**  
+Under review at *Nature* (2026)
+
+DOI: https://doi.org/10.5281/zenodo.19491027
+
+---
+
+## Scientific Scope
 
 The workflow supports:
 
 - Automated generation of IrO₂ slab models and adsorption configurations
-
 - Geometry optimisation using semi-empirical and first-principles backends
-
 - Systematic comparison of surface-bound intermediates across sites and coverages
-
 - Extraction of chemically meaningful active subspaces
-
-- Reduction of ab initio Hamiltonians for downstream classical and quantum simulations
-
+- Reduction of *ab initio* Hamiltonians for downstream classical and quantum simulations
 - Benchmarking and validation against experimental observables
 
 The pipeline is intended to bridge atomistic simulation, reduced-order modelling,
 and emerging quantum algorithms in a single reproducible framework.
 
-## Repository layout
+---
 
-**scripts/**  
-Python scripts for slab construction, adsorption-site generation, geometry optimisation,
-active-space extraction, Hamiltonian construction, and analysis.
+## Repository Layout
 
-**inputs/**  
+```text
+.
+├── scripts/      # Slab construction, adsorption-site generation,
+│                 # optimisation, Hamiltonian construction, analysis
+│
+├── inputs/       # Reference structures, slab definitions,
+│                 # workflow configuration files
+│
+├── examples/     # End-to-end example workflows
+│
+├── outputs/      # Generated structures, optimisation results,
+│                 # reduced Hamiltonians, analysis artefacts
+│
+├── tests/        # Automated validation tests
+│
+└── README.md
+```
+
+### Directory Details
+
+#### `scripts/`
+
+Python scripts for:
+
+- Slab construction
+- Adsorption-site generation
+- Geometry optimisation
+- Active-space extraction
+- Hamiltonian construction
+- Analysis and post-processing
+
+#### `inputs/`
+
 Reference structures, slab definitions, and configuration files used by the workflow.
 
-**examples/**  
+#### `examples/`
+
 Self-contained example workflows demonstrating full end-to-end execution of the
 pipeline for specific surface states and adsorbates.
 
-**outputs/**  
-Generated structures, optimisation results, reduced Hamiltonians, and analysis artefacts
-(excluded from version control where appropriate).
+#### `outputs/`
 
-**tests/**  
-Automated tests executed via GitHub Actions to validate core workflow components.
+Generated structures, optimisation results, reduced Hamiltonians, and analysis artefacts.
 
-## Reproducibility and development status
+Large generated datasets are excluded from version control where appropriate.
 
-Initial IrO₂ slab construction and baseline relaxation were performed using Quantum
-ESPRESSO, prior to ASE-based automation and analysis.
+#### `tests/`
 
-The workflow is under active development:
+Automated tests executed locally and via GitHub Actions to validate core workflow
+components and maintain reproducibility.
 
-The main branch contains stable examples, documentation, and tested reference scripts.
+---
 
-A dedicated development branch contains the full end-to-end pipeline used to generate
-current benchmark datasets, including active-space selection and Hamiltonian reduction.
+## Installation
 
-Versioned releases will be used to tag fully reproducible benchmark states.
+### Requirements
 
-### Running locally
+Recommended environment:
+
+- Python 3.10+
+- Linux or macOS
+- Git
+- Bash shell
+
+Core Python packages:
+
+- ase
+- numpy
+- scipy
+- matplotlib
+- pandas
+
+Optional external software depending on workflow stage:
+
+- Quantum ESPRESSO
+- xTB
+- PySCF
+- Qiskit
+
+---
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/<your-org>/<repo-name>.git
+cd <repo-name>
+```
+
+---
+
+### Create a Local Environment
+
+Using Python virtual environments:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+If a requirements file is not yet provided:
+
+```bash
+pip install ase numpy scipy matplotlib pandas
+```
+
+---
+
+## Running Locally
 
 An end-to-end example of the IrO₂ H* adsorption workflow is provided in:
 
-```examples/iro2_h_star_o69/```
+```text
+examples/iro2_h_star_o69/
+```
 
+This example executes the full workflow via a shell script that orchestrates
+the individual Python stages in the correct order.
 
-This example executes the full pipeline via a shell script that orchestrates the individual
-Python stages in the correct order.
+### Run the Workflow
 
-To run locally:
+```bash
+cd examples/iro2_h_star_o69
+bash run_all.sh
+```
 
-```cd examples/iro2_h_star_o69```  
-```bash run_all.sh``` 
+---
 
-### Note on workflow orchestration
+## Workflow Orchestration Philosophy
 
-The workflow is intentionally not driven by a single monolithic Python script.
-Instead, run_all.sh acts as a lightweight orchestration layer that:
+The workflow is intentionally **not** driven by a single monolithic Python script.
 
-Executes each stage (setup, optimisation, analysis, reduction) explicitly
+Instead, `run_all.sh` acts as a lightweight orchestration layer that:
 
-Preserves intermediate outputs for inspection and debugging
+- Executes each workflow stage explicitly
+- Preserves intermediate outputs for inspection and debugging
+- Makes execution order transparent and reproducible
+- Allows individual stages to be rerun independently
+- Enables substitution of methods or backends without modifying core scripts
 
-Makes the execution order transparent and reproducible
+This design reflects the exploratory and comparative nature of atomistic
+surface-science workflows.
 
-This design choice reflects the exploratory and comparative nature of the project, and
-allows individual stages to be rerun or substituted without modifying core scripts.
+Users extending the workflow to new surface states, adsorbates, or materials systems
+are encouraged to copy and adapt the example `run_all.sh` scripts rather than invoking
+internal scripts individually.
 
-Users extending the workflow to new surface states, adsorbates, or materials systems are
-encouraged to copy and adapt the example run_all.sh rather than invoking scripts
-individually.
+---
+
+## Manual Workflow Design
+
+The repository intentionally preserves a semi-manual workflow structure.
+
+Rather than hiding all execution logic behind opaque automation layers, the project
+prioritises:
+
+- Transparency of simulation stages
+- Inspectability of intermediate artefacts
+- Explicit execution order
+- Ease of debugging
+- Scientific reproducibility
+- Flexible substitution of computational methods
+
+This approach is particularly valuable for:
+
+- Comparative surface studies
+- Active-space experimentation
+- Benchmark generation
+- Exploratory adsorption analysis
+- Hybrid classical–quantum workflows
+
+Intermediate files are considered scientifically meaningful outputs rather than
+temporary artefacts.
+
+---
+
+## Continuous Integration
+
+Core workflow components are validated through automated testing using GitHub Actions.
+
+Run tests locally:
+
+```bash
+pytest tests/
+```
+
+Example GitHub Actions workflow:
+
+```yaml
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest tests/
+```
+
+CI validation is intended to ensure workflow stability while preserving the
+modular and exploratory nature of the repository.
+
+---
+
+## Reproducibility and Development Status
+
+Initial IrO₂ slab construction and baseline relaxation were performed using
+Quantum ESPRESSO prior to ASE-based automation and analysis.
+
+The workflow is under active development.
+
+### `main` branch
+
+Contains:
+
+- Stable examples
+- Documentation
+- Tested reference scripts
+- Reproducible baseline workflows
+
+### `development` branch
+
+Contains:
+
+- Full end-to-end benchmark generation pipeline
+- Active-space selection workflows
+- Hamiltonian reduction workflows
+- Experimental comparative pipelines
+
+Versioned releases will be used to tag fully reproducible benchmark states.
+
+---
 
 ## Citation
 
 If you use this workflow, please cite:
 
-Malhotra, M., Ramarapu, N., & Rinaldi, F. (2026). A Reproducible Workflow for 
-Extracting Quantum Hamiltonians from Surface-Adsorbate Models. Zenodo. 
-https://doi.org/10.5281/zenodo.19491027
+```bibtex
+@misc{malhotra2026iro2,
+  author       = {Malhotra, M. and Ramarapu, N. and Rinaldi, F.},
+  title        = {A Reproducible Workflow for Extracting Quantum Hamiltonians from Surface-Adsorbate Models},
+  year         = {2026},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.19491027},
+  url          = {https://doi.org/10.5281/zenodo.19491027}
+}
+```
 
 Under review at *Nature*.
+
+---
+
+## License
+
+Add your preferred open-source license here (e.g. MIT, BSD-3-Clause, Apache-2.0).
+
+---
+
+## Acknowledgements
+
+This work integrates concepts from:
+
+- Surface science and heterogeneous catalysis
+- Electronic-structure theory
+- Reduced-order modelling
+- Quantum simulation workflows
+- Reproducible computational science
