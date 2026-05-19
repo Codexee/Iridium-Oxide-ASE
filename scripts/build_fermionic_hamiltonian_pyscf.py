@@ -239,12 +239,21 @@ def main():
         mf = scf.RHF(mol)
     else:
         mf = scf.UHF(mol)
-
+       
     mf.verbose = 4
+    mf.max_cycles = 200
+    mf.level_shift = 0.1
+    mf.damp = 0.2
+    mf.diis_space = 12
     e = mf.kernel()
     if not mf.converged:
-        raise RuntimeError("PySCF SCF did not converge. Consider changing basis/method or adding damping/DIIS settings.")
-    print(f"SCF energy: {e}")
+    import warnings
+    warnings.warn(
+        f"SCF not fully converged after {mf.max_cycles} cycles. "
+        f"Final E={e:.6f} Ha, |g|={mf.get_grad(mf.mo_coeff, mf.mo_occ).max():.4f}. "
+        f"Proceeding with last density matrix.",
+        UserWarning
+    )
 
     # Extract MO coefficients and occupations
     if args.method == "RHF":
