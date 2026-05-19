@@ -241,7 +241,8 @@ def main():
         mf = scf.UHF(mol)
     mf.init_guess = 'atom'  
     mf.verbose = 4
-    mf.max_cycles = 200
+    mf.max_cycle = 200
+    mf.conv_tol = 1e-6
     mf.level_shift = 0.1
     mf.damp = 0.2
     mf.diis_space = 12
