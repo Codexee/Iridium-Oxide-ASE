@@ -193,6 +193,7 @@ def main():
     ap.add_argument("--charge", type=int, default=0)
     ap.add_argument("--spin", type=int, default=0, help="2S, i.e. Nalpha - Nbeta. spin=0 for closed-shell.")
     ap.add_argument("--basis", default="def2-svp", help="Basis set name (PySCF)")
+    ap.add_argument("--ecp", default="", help="ECP name for heavy elements (e.g. def2-svp). " "Empty string = all-electron (default, non-PP branch).")
     ap.add_argument("--method", choices=["RHF", "UHF"], default="RHF")
     ap.add_argument("--h-index", type=int, default=-1, help="0-based H atom index; -1 to infer single/last H")
     ap.add_argument("--region-cutoff", type=float, default=3.0, help="Å cutoff for region atoms around H")
@@ -229,6 +230,8 @@ def main():
     mol.charge = args.charge
     mol.spin = args.spin
     mol.basis = args.basis
+    if args.ecp:
+        mol.ecp = args.ecp
     mol.build()
 
     # Mean-field
