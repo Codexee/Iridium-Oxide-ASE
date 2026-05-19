@@ -247,13 +247,13 @@ def main():
     mf.diis_space = 12
     e = mf.kernel()
     if not mf.converged:
-    import warnings
-    warnings.warn(
-        f"SCF not fully converged after {mf.max_cycles} cycles. "
-        f"Final E={e:.6f} Ha, |g|={mf.get_grad(mf.mo_coeff, mf.mo_occ).max():.4f}. "
-        f"Proceeding with last density matrix.",
-        UserWarning
-    )
+       import warnings
+       warnings.warn(
+           f"SCF not fully converged after {mf.max_cycles} cycles. "
+           f"Final E={e:.6f} Ha, |g|={mf.get_grad(mf.mo_coeff, mf.mo_occ).max():.4f}. "
+           f"Proceeding with last density matrix.",
+           UserWarning
+       )
 
     # Extract MO coefficients and occupations
     if args.method == "RHF":
