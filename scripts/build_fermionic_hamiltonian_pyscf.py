@@ -239,7 +239,7 @@ def main():
         mf = scf.RHF(mol)
     else:
         mf = scf.UHF(mol)
-       
+    mf.init_guess = 'atom'  
     mf.verbose = 4
     mf.max_cycles = 200
     mf.level_shift = 0.1
