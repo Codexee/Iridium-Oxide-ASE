@@ -43,6 +43,10 @@ on:
         description: "Explicit PySCF MO indices, 0-based. Empty = region-based selection"
         required: false
         default: ""
+      ecp:
+        description: "ECP for heavy elements (e.g. def2-svp). Empty = all-electron."
+        required: false
+        default: "def2-svp"
       mapping:
         description: "Qubit mapping"
         required: true
@@ -158,6 +162,7 @@ jobs:
             --n-occ "${{ inputs.n_occ }}" \
             --n-virt "${{ inputs.n_virt }}" \
             --active-mos "${{ inputs.active_mos }}" \
+            --ecp "${{ inputs.ecp }}" \
             --outdir "outputs/hamiltonians"
 
       - name: Export qubit Hamiltonian JSON
