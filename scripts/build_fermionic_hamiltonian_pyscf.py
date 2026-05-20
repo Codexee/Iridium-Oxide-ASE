@@ -240,16 +240,18 @@ def main():
     else:
         mf = scf.UHF(mol)
     mf.init_guess = 'sad'
+    mf.verbose = 4
     mf.max_cycle = 200
     mf.conv_tol = 1e-6
     mf.damp = 0.3
     mf.diis_space = 12
     mf.diis_start_cycle = 5
+   
     e = mf.kernel()
     if not mf.converged:
        import warnings
        warnings.warn(
-           f"SCF not fully converged after {mf.max_cycles} cycles. "
+           f"SCF not fully converged after {mf.max_cycle} cycles. "
            f"Final E={e:.6f} Ha, |g|={mf.get_grad(mf.mo_coeff, mf.mo_occ).max():.4f}. "
            f"Proceeding with last density matrix.",
            UserWarning
