@@ -239,23 +239,23 @@ def main():
         mf = scf.RHF(mol)
     else:
         mf = scf.UHF(mol)
-    mf.init_guess = 'sad'
+    
+    mf = scf.RHF(mol)
     mf.verbose = 4
-    mf.max_cycle = 200
+    mf.max_cycle = 300
     mf.conv_tol = 1e-6
-    mf.damp = 0.3
+    mf.damp = 0.2
+    mf.level_shift = 0.1
     mf.diis_space = 12
-    mf.diis_start_cycle = 5
    
     e = mf.kernel()
     if not mf.converged:
-       import warnings
-       warnings.warn(
-           f"SCF not fully converged after {mf.max_cycle} cycles. "
-           f"Final E={e:.6f} Ha, |g|={mf.get_grad(mf.mo_coeff, mf.mo_occ).max():.4f}. "
-           f"Proceeding with last density matrix.",
-           UserWarning
-       )
+        import warnings
+        warnings.warn(
+            f"SCF not fully converged after {mf.max_cycle} cycles. "
+            f"Final E={e:.6f} Ha. Proceeding with last density matrix.",
+            UserWarning
+        )
 
     # Extract MO coefficients and occupations
     if args.method == "RHF":
