@@ -239,14 +239,12 @@ def main():
         mf = scf.RHF(mol)
     else:
         mf = scf.UHF(mol)
-    #mf.init_guess = 'atom'  
-    mf.verbose = 4
+    mf.init_guess = 'sad'
     mf.max_cycle = 200
     mf.conv_tol = 1e-6
-    mf.level_shift = 0.3
-    mf.damp = 0.6
-    mf.diis_space = 8
-    mf.diis_start_cycle = 20
+    mf.damp = 0.3
+    mf.diis_space = 12
+    mf.diis_start_cycle = 5
     e = mf.kernel()
     if not mf.converged:
        import warnings
