@@ -242,14 +242,14 @@ def main():
     
     mf = scf.RHF(mol)
     mf.verbose = 4
-    mf.max_cycle = 300
+    mf.max_cycle = 200
     mf.conv_tol = 1e-6
-    mf.damp = 0.2
-    mf.level_shift = 0.1
-    mf.diis_space = 12
-   
     e = mf.kernel()
+    # If DIIS fails, switch to second-order solver
+
     if not mf.converged:
+        mf = mf.newton()
+        e = mf.kernel()
         import warnings
         warnings.warn(
             f"SCF not fully converged after {mf.max_cycle} cycles. "
