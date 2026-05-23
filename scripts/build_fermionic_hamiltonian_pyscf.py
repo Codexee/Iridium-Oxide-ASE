@@ -236,18 +236,24 @@ def main():
     mol.build()
 
     # Mean-field
-    from pyscf import dft
+   mf = scf.RHF(mol)
+mf.verbose = 4
+mf.max_cycle = 200
+mf.conv_tol = 1e-6
+e = mf.kernel()
+# If DIIS fails, switch to second-order solver
+if not mf.converged:
+    mf = mf.newton()
+    e = mf.kernel()
+   
+    """ Commenting out RKS trial because it didn't work from pyscf import dft
     mf = dft.RKS(mol)
     mf.xc = 'pbe'
     mf.verbose = 4
     mf.max_cycle = 200
     mf.conv_tol = 1e-6
 
-    e = mf.kernel()
-
-    if not mf.converged:
-        mf = mf.newton()
-        e = mf.kernel()
+    e = mf.kernel()"""
 
     if not mf.converged:
         import warnings
