@@ -33,6 +33,7 @@ from ase.io import read
 # PySCF imports
 from pyscf import gto, scf, ao2mo
 from pyscf.tools import molden
+from pyscf import dft
 
 def json_sanitize(obj):
     """Convert numpy scalars/arrays into plain Python types for JSON."""
@@ -235,27 +236,27 @@ def main():
     mol.build()
 
     # Mean-field
-    if args.method == "RHF":
-        mf = scf.RHF(mol)
-    else:
-        mf = scf.UHF(mol)
-    
-    mf = scf.RHF(mol)
+    from pyscf import dft
+    mf = dft.RKS(mol)
+    mf.xc = 'pbe'
     mf.verbose = 4
     mf.max_cycle = 200
     mf.conv_tol = 1e-6
+
     e = mf.kernel()
-    # If DIIS fails, switch to second-order solver
 
     if not mf.converged:
         mf = mf.newton()
         e = mf.kernel()
+
+    if not mf.converged:
         import warnings
         warnings.warn(
-            f"SCF not fully converged after {mf.max_cycle} cycles. "
+            f"SCF not fully converged after newton(). "
             f"Final E={e:.6f} Ha. Proceeding with last density matrix.",
             UserWarning
         )
+    print(f"SCF energy: {e}")
 
     # Extract MO coefficients and occupations
     if args.method == "RHF":
