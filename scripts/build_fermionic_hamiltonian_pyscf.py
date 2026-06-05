@@ -275,6 +275,15 @@ def main():
         mo_occ = mf.mo_occ[0]
         print("NOTE: UHF detected; selecting active orbitals from ALPHA MOs for now.")
 
+    print("=" * 60)
+    print("ORBITAL OCCUPATION DIAGNOSTICS")
+    print("=" * 60)
+    print(f"Total MOs: {len(mo_occ)}")
+    print(f"Total electrons (sum of occ): {sum(mo_occ):.4f}")
+    print(f"Occupied (occ > 1e-3): {int(sum(1 for o in mo_occ if o > 1e-3))}")
+    print(f"Virtual (occ <= 1e-3): {int(sum(1 for o in mo_occ if o <= 1e-3))}")
+    print()
+
     # region AO mask
     region_aos = aos_for_atom_indices(mol, region_atoms)
 
@@ -297,6 +306,17 @@ def main():
 
         active_mos = list(occ_rank[:args.n_occ]) + list(virt_rank[:args.n_virt])
         print(f"Selected active MOs by region fraction: {active_mos}")
+
+    print("=" * 60)
+    print(f"ACTIVE SPACE: {len(active_mos)} orbitals")
+    print("=" * 60)
+    print(f"{'MO index':>10} {'occ':>10} {'energy (Ha)':>15}")
+    for i in active_mos:
+        print(f"{i:>10} {mo_occ[i]:>10.4f} {mf.mo_energy[i]:>15.6f}")
+    print()
+    print(f"Sum of active occ: {sum(mo_occ[i] for i in active_mos):.4f}")
+    print(f"n_active_electrons (rounded): {int(sum(round(mo_occ[i]) for i in active_mos))}")
+    print("=" * 60)
 
     # Build active-space integrals
     h1, h2, ecore, n_active_electrons = active_space_integrals(mol, mf, mo_coeff, active_mos)
