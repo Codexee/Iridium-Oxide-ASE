@@ -320,14 +320,39 @@ def parse_molden(molden_path: Path) -> MoldenData:
 # Region definitions and scoring
 # ----------------------------
 
-def guess_hstar_index(atoms) -> int:
+"""def guess_hstar_index(atoms) -> int:"""
     """Return 0-based index of H* atom. If exactly one H, use it; else pick last H."""
+    """symbols = atoms.get_chemical_symbols()
+    h_indices = [i for i, s in enumerate(symbols) if s.upper() == "H"]
+    if not h_indices:
+        raise ValueError("No hydrogen atoms found in cluster; cannot infer H* index.")
+    if len(h_indices) == 1:
+        return h_indices[0]
+    return h_indices[-1]"""
+def guess_hstar_index(atoms) -> int:
+    """Return 0-based index of H* atom.
+    
+    Prefers the adsorbate H (tag=0) over cap H atoms (tag=1).
+    Falls back to legacy behaviour (last H) if tags are not set.
+    """
     symbols = atoms.get_chemical_symbols()
     h_indices = [i for i, s in enumerate(symbols) if s.upper() == "H"]
     if not h_indices:
         raise ValueError("No hydrogen atoms found in cluster; cannot infer H* index.")
     if len(h_indices) == 1:
         return h_indices[0]
+    
+    # Prefer adsorbate H (tag=0) over cap H atoms (tag=1).
+    # Falls back to last H if tags are not set (older cluster files).
+    try:
+        tags = atoms.get_tags()
+        adsorbate_h = [i for i in h_indices if tags[i] == 0]
+        if adsorbate_h:
+            return adsorbate_h[0]
+    except Exception:
+        pass
+    
+    # Fallback: last H (legacy behaviour for untagged cluster files)
     return h_indices[-1]
 
 
