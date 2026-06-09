@@ -62,10 +62,10 @@ def cap_dangling_oxygens(slab_atoms, cluster_atoms, slab_indices_kept,
         ]
         if any(d < 1.2 for d in distances_to_H):
             continue
-          # Find this O's Ir neighbours in the original slab
-          ir_neighbours_in_slab = find_ir_neighbours_in_slab(
-              slab_atoms, slab_i, ir_o_cutoff
-          )
+        # Find this O's Ir neighbours in the original slab
+        ir_neighbours_in_slab = find_ir_neighbours_in_slab(
+            slab_atoms, slab_i, ir_o_cutoff
+        )
 
         # Identify the ones that did NOT survive the cut
         missing_ir = [j for j in ir_neighbours_in_slab if j not in kept_set]
