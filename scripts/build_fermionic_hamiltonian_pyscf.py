@@ -162,7 +162,8 @@ def active_space_integrals(
     C_fro = mo_coeff[:, frozen_occ]
 
     # Core Hamiltonian
-    hcore_ao = mol.intor('int1e_kin') + mol.intor('int1e_nuc')
+    #hcore_ao = mol.intor('int1e_kin') + mol.intor('int1e_nuc')
+    hcore_ao = mf.get_hcore()
 
     # Frozen-core density matrix
     dm_fro = 2.0 * C_fro @ C_fro.T if len(frozen_occ) > 0 else np.zeros_like(hcore_ao)
