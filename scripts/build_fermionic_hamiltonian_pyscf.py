@@ -299,20 +299,6 @@ def main():
     if explicit:
         active_mos = explicit
         print(f"Using explicit PySCF MO indices (0-based): {active_mos}")
-    """else:
-        # Region-based selection
-        scores = (mo_coeff ** 2)
-        total = np.sum(scores, axis=0) + 1e-18
-        region = np.sum(scores[region_aos, :], axis=0)
-        frac = region / total
-
-        occ_idx = np.where(mo_occ > 1e-3)[0]
-        virt_idx = np.where(mo_occ <= 1e-3)[0]
-        occ_rank = occ_idx[np.argsort(frac[occ_idx])[::-1]]
-        virt_rank = virt_idx[np.argsort(frac[virt_idx])[::-1]]
-
-        active_mos = list(occ_rank[:args.n_occ]) + list(virt_rank[:args.n_virt])
-        print(f"Selected active MOs by region fraction: {active_mos}")"""
    
     else:
         # Region-based selection, restricted to a frontier energy window.
