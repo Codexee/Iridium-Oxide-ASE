@@ -201,6 +201,11 @@ def main():
     ap.add_argument("--active-mos", default="", help="Explicit PySCF MO indices (0-based). Example: '10,11,12,13'")
     ap.add_argument("--n-occ", type=int, default=4, help="If using region-based selection: number of occupied actives")
     ap.add_argument("--n-virt", type=int, default=3, help="If using region-based selection: number of virtual actives")
+    ap.add_argument("--homo-window-ha", type=float, default=0.15,
+                    help="Frontier energy window (Ha) for region-based selection. "
+                         "Occupied MOs within this window of the HOMO and virtuals "
+                         "within this window of the LUMO are considered before region "
+                         "ranking. Set <=0 to disable (legacy unfiltered behavior).")
     ap.add_argument("--write-molden", action="store_true", help="Write PySCF molden for visualization")
     ap.add_argument("--outdir", default="outputs/hamiltonians")
     args = ap.parse_args()
@@ -268,11 +273,13 @@ def main():
     if args.method == "RHF":
         mo_coeff = mf.mo_coeff  # (nao, nmo)
         mo_occ = mf.mo_occ      # (nmo,)
+        mo_energy = mf.mo_energy  # (nmo,)
     else:
         # For UHF, treat alpha and beta separately; simplest first step is alpha channel selection
         # (You can extend later to spin-orbital Hamiltonians explicitly.)
         mo_coeff = mf.mo_coeff[0]
         mo_occ = mf.mo_occ[0]
+        mo_energy = mf.mo_energy[0]
         print("NOTE: UHF detected; selecting active orbitals from ALPHA MOs for now.")
 
     print("=" * 60)
@@ -292,7 +299,7 @@ def main():
     if explicit:
         active_mos = explicit
         print(f"Using explicit PySCF MO indices (0-based): {active_mos}")
-    else:
+    """else:
         # Region-based selection
         scores = (mo_coeff ** 2)
         total = np.sum(scores, axis=0) + 1e-18
@@ -305,7 +312,43 @@ def main():
         virt_rank = virt_idx[np.argsort(frac[virt_idx])[::-1]]
 
         active_mos = list(occ_rank[:args.n_occ]) + list(virt_rank[:args.n_virt])
-        print(f"Selected active MOs by region fraction: {active_mos}")
+        print(f"Selected active MOs by region fraction: {active_mos}")"""
+   
+    else:
+        # Region-based selection, restricted to a frontier energy window.
+        scores = (mo_coeff ** 2)
+        total = np.sum(scores, axis=0) + 1e-18
+        region = np.sum(scores[region_aos, :], axis=0)
+        frac = region / total
+
+        occ_idx = np.where(mo_occ > 1e-3)[0]
+        virt_idx = np.where(mo_occ <= 1e-3)[0]
+
+        # Frontier reference energies
+        e_homo = float(np.max(mo_energy[occ_idx]))
+        e_lumo = float(np.min(mo_energy[virt_idx])) if virt_idx.size else e_homo
+
+        w = args.homo_window_ha
+        if w and w > 0:
+            occ_win = occ_idx[np.abs(mo_energy[occ_idx] - e_homo) <= w]
+            virt_win = virt_idx[np.abs(mo_energy[virt_idx] - e_lumo) <= w]
+            # Fallback: if the window is too tight to supply enough orbitals,
+            # take the n closest-to-frontier orbitals on that side instead.
+            if occ_win.size < args.n_occ:
+                occ_win = occ_idx[np.argsort(np.abs(mo_energy[occ_idx] - e_homo))[:args.n_occ]]
+            if virt_win.size < args.n_virt:
+                virt_win = virt_idx[np.argsort(np.abs(mo_energy[virt_idx] - e_lumo))[:args.n_virt]]
+        else:
+            occ_win, virt_win = occ_idx, virt_idx
+
+        occ_rank = occ_win[np.argsort(frac[occ_win])[::-1]]
+        virt_rank = virt_win[np.argsort(frac[virt_win])[::-1]]
+
+        active_mos = list(occ_rank[:args.n_occ]) + list(virt_rank[:args.n_virt])
+        print(f"HOMO={e_homo:.4f} Ha, LUMO={e_lumo:.4f} Ha, window=+/-{w} Ha")
+        print(f"  occ in window: {occ_win.size}/{occ_idx.size}, "
+              f"virt in window: {virt_win.size}/{virt_idx.size}")
+        print(f"Selected active MOs by region fraction (frontier-filtered): {active_mos}")
 
     print("=" * 60)
     print(f"ACTIVE SPACE: {len(active_mos)} orbitals")
