@@ -82,11 +82,6 @@ def spatial_to_spin_orbital(h1_spatial: np.ndarray, h2_spatial: np.ndarray):
                             h2[so(p,sp), so(q,sq), so(r,sq), so(s,sp)] = v
     return h1, h2
   
-  """ Putting old logic here in comments in case we need to use it later v = h2_spatial[p, r, q, s]  # physicist <pq|rs> = chemist (pr|qs)
-                    for sp in (0, 1):
-                        for sq in (0, 1):
-                            h2[so(p,sp), so(q,sq), so(r,sp), so(s,sq)] = v"""
-  
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("npz", help="Path to fermionic_active_space.npz")
