@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
+"""
+Exact diagonalization of an exported qubit Hamiltonian JSON.
+
+Reports three numbers rather than one:
+  - ground_state_energy_hartree         : lowest eigenvalue in the N-electron sector
+  - hf_reference_energy_hartree         : energy of the lowest single determinant
+                                          (the Hartree-Fock reference for a canonical
+                                          active space)
+  - correlation_energy_hartree          : E_ground - E_HF
+
+The correlation energy is taken entirely within one Hamiltonian, so it is
+invariant to any constant offset in the identity term. For a correctly built
+active space, hf_reference_energy_hartree should equal the SCF energy.
+"""
 from __future__ import annotations
 import argparse
 import json
-from math import comb
 from pathlib import Path
 
 import numpy as np
@@ -32,12 +45,12 @@ def build_term_matrix(n_qubits: int, paulis):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Exact diagonalization of exported qubit Hamiltonian JSON.")
+    ap = argparse.ArgumentParser(description="Exact diagonalization of an exported qubit Hamiltonian JSON.")
     ap.add_argument("json_path", help="Path to qubit_hamiltonian_*.json")
     ap.add_argument("--n-electrons", type=int, default=None, help="Restrict to fixed-electron subspace")
     ap.add_argument("--fermionic-json", default="", help="Optional fermionic_active_space.json to read n_active_electrons")
     ap.add_argument("--k", type=int, default=4, help="Number of lowest eigenvalues to compute")
-    ap.add_argument("--dense-threshold", type=int, default=4096, help="Use dense diagonalization if subspace dimension <= threshold")
+    ap.add_argument("--dense-threshold", type=int, default=4096, help="Dense diagonalization if subspace dim <= threshold")
     ap.add_argument("--out", default="", help="Optional output JSON path")
     args = ap.parse_args()
 
@@ -65,26 +78,27 @@ def main():
 
     full_dim = dim
     subspace_dim = dim
-
     if n_electrons is not None:
         basis = np.array([i for i in range(dim) if popcount(i) == n_electrons], dtype=np.int64)
         subspace_dim = len(basis)
         if subspace_dim == 0:
-            raise ValueError(f"No basis states found for n_qubits={n_qubits}, n_electrons={n_electrons}")
+            raise ValueError(f"No basis states for n_qubits={n_qubits}, n_electrons={n_electrons}")
         print(f"Restricting to fixed-electron sector: N={n_electrons}, dim={subspace_dim} / {full_dim}")
         H = H[basis][:, basis]
 
+    # Hartree-Fock reference = lowest single determinant = smallest diagonal element.
+    # For a canonical (energy-ordered) active space this is the Aufbau / HF determinant.
+    diag = np.real(H.diagonal())
+    E_HF = float(diag.min())
+
     if subspace_dim <= args.dense_threshold:
-        evals = np.linalg.eigvalsh(H.toarray())
-        evals = np.real_if_close(evals)
-        evals = np.sort(evals)[:args.k]
+        evals = np.sort(np.real_if_close(np.linalg.eigvalsh(H.toarray())))[:args.k]
         solver = "dense"
     else:
         k = min(args.k, subspace_dim - 2)
-        evals = eigsh(H, k=k, which="SA", return_eigenvectors=False)
-        evals = np.real_if_close(evals)
-        evals = np.sort(evals)
+        evals = np.sort(np.real_if_close(eigsh(H, k=k, which="SA", return_eigenvectors=False)))
         solver = "eigsh"
+    E0 = float(np.real(evals[0]))
 
     out = {
         "source_json": str(path),
@@ -95,7 +109,9 @@ def main():
         "full_hilbert_dim": int(full_dim),
         "diagonalized_dim": int(subspace_dim),
         "solver": solver,
-        "ground_state_energy_hartree": float(np.real(evals[0])),
+        "ground_state_energy_hartree": E0,
+        "hf_reference_energy_hartree": E_HF,
+        "correlation_energy_hartree": E0 - E_HF,
         "lowest_eigenvalues_hartree": [float(np.real(x)) for x in evals[:args.k]],
     }
 
